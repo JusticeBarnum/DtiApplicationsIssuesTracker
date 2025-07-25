@@ -1,5 +1,8 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace DtiApplicationsIssuesTracker.Server.Models
 {
+    [Table("ApplicationIssuesTracking")]
     public class Issue
     {
         public int Id { get; set; }

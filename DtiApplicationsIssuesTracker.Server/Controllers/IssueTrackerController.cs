@@ -1,5 +1,6 @@
 using DtiApplicationsIssuesTracker.Server.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DtiApplicationsIssuesTracker.Server.Controllers
 {
@@ -7,62 +8,114 @@ namespace DtiApplicationsIssuesTracker.Server.Controllers
     [Route("api/[controller]")]
     public class IssueTrackerController : ControllerBase
     {
-        [HttpGet("repositories")]
-        public IActionResult GetRepositories()
+        private readonly IssueTrackingContext _context;
+
+        public IssueTrackerController(IssueTrackingContext context)
         {
-            return Ok(DataStore.Repositories.Values.OrderBy(r => r.Id));
+            _context = context;
+        }
+        [HttpGet("repositories")]
+        public async Task<IActionResult> GetRepositories()
+        {
+            var repos = await _context.Repositories.OrderBy(r => r.Id).ToListAsync();
+            return Ok(repos);
         }
 
         [HttpPost("repositories")]
-        public IActionResult AddRepository([FromBody] Repository repo)
+        public async Task<IActionResult> AddRepository([FromBody] Repository repo)
         {
             if (string.IsNullOrWhiteSpace(repo.Name)) return BadRequest();
-            var added = DataStore.AddRepository(repo.Name);
-            return Ok(added);
+            _context.Repositories.Add(repo);
+            await _context.SaveChangesAsync();
+            return Ok(repo);
         }
 
         [HttpGet("categories")]
-        public IActionResult GetCategories()
+        public async Task<IActionResult> GetCategories()
         {
-            return Ok(DataStore.Categories.Values.OrderBy(c => c.Id));
+            var cats = await _context.Categories.OrderBy(c => c.Id).ToListAsync();
+            return Ok(cats);
         }
 
         [HttpPost("categories")]
-        public IActionResult AddCategory([FromBody] Category category)
+        public async Task<IActionResult> AddCategory([FromBody] Category category)
         {
             if (string.IsNullOrWhiteSpace(category.Name)) return BadRequest();
-            var added = DataStore.AddCategory(category.Name);
-            return Ok(added);
+            _context.Categories.Add(category);
+            await _context.SaveChangesAsync();
+            return Ok(category);
         }
 
         [HttpGet("datasources")]
-        public IActionResult GetDataSources()
+        public async Task<IActionResult> GetDataSources()
         {
-            return Ok(DataStore.DataSources.Values.OrderBy(d => d.Id));
+            var dss = await _context.DataSources.OrderBy(d => d.Id).ToListAsync();
+            return Ok(dss);
         }
 
         [HttpPost("datasources")]
-        public IActionResult AddDataSource([FromBody] DataSource dataSource)
+        public async Task<IActionResult> AddDataSource([FromBody] DataSource dataSource)
         {
             if (string.IsNullOrWhiteSpace(dataSource.Name)) return BadRequest();
-            var added = DataStore.AddDataSource(dataSource.Name);
-            return Ok(added);
+            _context.DataSources.Add(dataSource);
+            await _context.SaveChangesAsync();
+            return Ok(dataSource);
         }
 
         [HttpGet("issues")]
-        public IActionResult GetIssues()
+        public async Task<IActionResult> GetIssues()
         {
-            return Ok(DataStore.Issues.Values.OrderBy(i => i.Id));
+            var issues = await _context.Issues.OrderBy(i => i.Id).ToListAsync();
+            return Ok(issues);
         }
 
         [HttpPost("issues")]
-        public IActionResult AddIssue([FromBody] Issue issue)
+        public async Task<IActionResult> AddIssue([FromBody] Issue issue)
         {
-            if (!DataStore.Repositories.ContainsKey(issue.RepositoryId)) return BadRequest("Invalid repository");
-            if (!DataStore.Categories.ContainsKey(issue.CategoryId)) return BadRequest("Invalid category");
-            if (issue.DataSourceId.HasValue && !DataStore.DataSources.ContainsKey(issue.DataSourceId.Value)) return BadRequest("Invalid data source");
-            var added = DataStore.AddIssue(issue);
-            return Ok(added);
+            if (!await _context.Repositories.AnyAsync(r => r.Id == issue.RepositoryId)) return BadRequest("Invalid repository");
+            if (!await _context.Categories.AnyAsync(c => c.Id == issue.CategoryId)) return BadRequest("Invalid category");
+            if (issue.DataSourceId.HasValue && !await _context.DataSources.AnyAsync(d => d.Id == issue.DataSourceId.Value)) return BadRequest("Invalid data source");
+            _context.Issues.Add(issue);
+            await _context.SaveChangesAsync();
+            return Ok(issue);
+        }
+
+        [HttpGet("issues/{id}")]
+        public async Task<IActionResult> GetIssue(int id)
+        {
+            var issue = await _context.Issues.FindAsync(id);
+            if (issue == null) return NotFound();
+            return Ok(issue);
+        }
+
+        [HttpPut("issues/{id}")]
+        public async Task<IActionResult> UpdateIssue(int id, [FromBody] Issue updated)
+        {
+            var issue = await _context.Issues.FindAsync(id);
+            if (issue == null) return NotFound();
+            if (!await _context.Repositories.AnyAsync(r => r.Id == updated.RepositoryId)) return BadRequest("Invalid repository");
+            if (!await _context.Categories.AnyAsync(c => c.Id == updated.CategoryId)) return BadRequest("Invalid category");
+            if (updated.DataSourceId.HasValue && !await _context.DataSources.AnyAsync(d => d.Id == updated.DataSourceId.Value)) return BadRequest("Invalid data source");
+
+            issue.RepositoryId = updated.RepositoryId;
+            issue.CategoryId = updated.CategoryId;
+            issue.DataSourceId = updated.DataSourceId;
+            issue.Status = updated.Status;
+            issue.Description = updated.Description;
+            issue.Resolution = updated.Resolution;
+
+            await _context.SaveChangesAsync();
+            return Ok(issue);
+        }
+
+        [HttpDelete("issues/{id}")]
+        public async Task<IActionResult> DeleteIssue(int id)
+        {
+            var issue = await _context.Issues.FindAsync(id);
+            if (issue == null) return NotFound();
+            _context.Issues.Remove(issue);
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
     }
 }
