@@ -64,5 +64,37 @@ namespace DtiApplicationsIssuesTracker.Server.Controllers
             var added = DataStore.AddIssue(issue);
             return Ok(added);
         }
+
+        [HttpGet("issues/{id}")]
+        public IActionResult GetIssue(int id)
+        {
+            if (!DataStore.Issues.TryGetValue(id, out var issue)) return NotFound();
+            return Ok(issue);
+        }
+
+        [HttpPut("issues/{id}")]
+        public IActionResult UpdateIssue(int id, [FromBody] Issue updated)
+        {
+            if (!DataStore.Issues.TryGetValue(id, out var issue)) return NotFound();
+            if (!DataStore.Repositories.ContainsKey(updated.RepositoryId)) return BadRequest("Invalid repository");
+            if (!DataStore.Categories.ContainsKey(updated.CategoryId)) return BadRequest("Invalid category");
+            if (updated.DataSourceId.HasValue && !DataStore.DataSources.ContainsKey(updated.DataSourceId.Value)) return BadRequest("Invalid data source");
+
+            issue.RepositoryId = updated.RepositoryId;
+            issue.CategoryId = updated.CategoryId;
+            issue.DataSourceId = updated.DataSourceId;
+            issue.Status = updated.Status;
+            issue.Description = updated.Description;
+            issue.Resolution = updated.Resolution;
+
+            return Ok(issue);
+        }
+
+        [HttpDelete("issues/{id}")]
+        public IActionResult DeleteIssue(int id)
+        {
+            if (!DataStore.Issues.TryRemove(id, out _)) return NotFound();
+            return NoContent();
+        }
     }
 }
